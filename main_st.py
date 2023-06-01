@@ -231,8 +231,9 @@ if assistant_role_name and user_role_name:
                     st.write(f"<p style='color: red;'><b>Specified task prompt:</b></p>\n\n{specified_task}\n", unsafe_allow_html=True)
 
                     chat_history = []
-
-                    with st.spinner("Running role-playing session to solve the task..."):
+import time
+def chat_with_agents():
+    with st.spinner("Running role-playing session to solve the task..."):
         # Replace the for loop with the following code:
         progress = st.progress(0)
         for n in range(chat_turn_limit):
@@ -281,9 +282,6 @@ if assistant_role_name and user_role_name:
             time.sleep(1)
 
         progress.empty()
-
-
-                    
 
                     # Main: Save chat history to file
                     task_name = generate_unique_task_name(task, chat_history_items)
