@@ -1,0 +1,6 @@
+langchain==0.0.157
+openai==0.27.6
+termcolor==2.3.0
+
+# streamlit is only needed for the main_st.py file
+streamlit==1.22.0
