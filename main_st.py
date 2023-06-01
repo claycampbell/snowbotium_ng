@@ -214,51 +214,52 @@ with open("chat_history.json", "a") as history_file:
     json.dump(history_dict, history_file)
     history_file.write("\n")
 
-else:
+if not task:
     st.warning("Please enter the task.")
-else:
+elif not assistant_role_name or not user_role_name:
     st.warning("Please select both AI assistant and AI user roles.")
-
-# Sidebar: Load chat history
-chat_history_titles = [item["task"] for item in chat_history_items]
-try:
-    chat_history_items = load_chat_history_items()
+else:
+    # Sidebar: Load chat history
     chat_history_titles = [item["task"] for item in chat_history_items]
-    selected_history = st.sidebar.selectbox("Select chat history:", ["None"] + chat_history_titles)
+    try:
+        chat_history_items = load_chat_history_items()
+        chat_history_titles = [item["task"] for item in chat_history_items]
+        selected_history = st.sidebar.selectbox("Select chat history:", ["None"] + chat_history_titles)
 
-    if selected_history != "None":
-        delete_history_button = st.sidebar.button("Delete Selected Chat History")
+        if selected_history != "None":
+            delete_history_button = st.sidebar.button("Delete Selected Chat History")
 
-        if delete_history_button and selected_history != "None":
-            chat_history_items.pop(chat_history_titles.index(selected_history))
+            if delete_history_button and selected_history != "None":
+                chat_history_items.pop(chat_history_titles.index(selected_history))
 
-            # Save the updated chat history to file
-            with open("chat_history.json", "w") as history_file:
-                for item in chat_history_items:
-                    json.dump(item, history_file)
-                    history_file.write("\n")
+                # Save the updated chat history to file
+                with open("chat_history.json", "w") as history_file:
+                    for item in chat_history_items:
+                        json.dump(item, history_file)
+                        history_file.write("\n")
 
-            st.sidebar.success("Selected chat history deleted.")
-            st.experimental_rerun()
+                st.sidebar.success("Selected chat history deleted.")
+                st.experimental_rerun()
 
-    # Main: Display selected chat history
-    if selected_history != "None":
-        selected_history_item = chat_history_items[chat_history_titles.index(selected_history)]
-        settings = selected_history_item["settings"]
-        conversation = selected_history_item["conversation"]
+        # Main: Display selected chat history
+        if selected_history != "None":
+            selected_history_item = chat_history_items[chat_history_titles.index(selected_history)]
+            settings = selected_history_item["settings"]
+            conversation = selected_history_item["conversation"]
 
-        st.write(f"<p style='color: green; font-weight: bold;'>Task:</p> {selected_history}\n", unsafe_allow_html=True)
+            st.write(f"<p style='color: green; font-weight: bold;'>Task:</p> {selected_history}\n", unsafe_allow_html=True)
 
-        st.write(f"""<p style='color: green; font-weight: bold;'>Settings:</p>
-                    <p>- AI assistant role: <span >{settings['assistant_role_name']}</span></p>
-                    <p>- AI user role: <span >{settings['user_role_name']}</span></p>
-                    <p>- Model: {settings['model']}</p>
-                    <p>- Chat turn limit: {settings['chat_turn_limit']}</p>
-                    """, unsafe_allow_html=True)
+            st.write(f"""<p style='color: green; font-weight: bold;'>Settings:</p>
+                        <p>- AI assistant role: <span >{settings['assistant_role_name']}</span></p>
+                        <p>- AI user role: <span >{settings['user_role_name']}</span></p>
+                        <p>- Model: {settings['model']}</p>
+                        <p>- Chat turn limit: {settings['chat_turn_limit']}</p>
+                        """, unsafe_allow_html=True)
 
-        for msg in conversation:
-            st.markdown(f"<p style='color: green; font-weight: bold;'>{msg['role']}</p>\n\n{msg['content']}\n\n", unsafe_allow_html=True)
+            for msg in conversation:
+                st.markdown(f"<p style='color: green; font-weight: bold;'>{msg['role']}</p>\n\n{msg['content']}\n\n", unsafe_allow_html=True)
 
-except FileNotFoundError:
-    st.sidebar.warning("No chat history available.")
+    except FileNotFoundError:
+        st.sidebar.warning("No chat history available.")
+
 
