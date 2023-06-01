@@ -18,6 +18,7 @@ from langchain.schema import (
 from camel_agent import CAMELAgent
 from inception_prompts import assistant_inception_prompt, user_inception_prompt
 import json
+import uuid
 
 # Snowflake connection parameters
 snowflake_user = st.secrets["snowflake"]["user"]
@@ -92,7 +93,8 @@ def get_sys_msgs(assistant_role_name: str, user_role_name: str, task: str):
 
     return assistant_sys_msg, user_sys_msg
 
-def generate_unique_task_name(task: str, chat_history_items: List[dict]) -> str:
+def generate_unique_task_name(task: str, chat_history_items: List[dict]) -> str.
+
     task_name = task
     count = 1
     task_names = [item["task"] for item in chat_history_items]
