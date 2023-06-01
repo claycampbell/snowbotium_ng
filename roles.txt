@@ -1,0 +1,11 @@
+Business Analyst
+Technical Project Manager
+Data Analyst
+Data Engineer
+Solution Architect
+Cloud Architect
+DevOps Engineer
+Quality Assurance Analyst
+UI/UX Designer
+Data Scientist
+Software Engineer
