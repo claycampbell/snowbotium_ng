@@ -58,13 +58,17 @@ cursor.execute(f"""
     )
 """)
 
+import base64
+
 # Function to insert file data into Snowflake
 def insert_file_data(file_id, filename, file_data):
+    file_data_str = base64.b64encode(file_data).decode('utf-8')  # Convert binary data to string
     cursor.execute(f"""
         INSERT INTO {snowbotium_table_files} (id, filename, filedata)
         VALUES (%s, %s, %s)
-    """, (file_id, filename, file_data))
+    """, (file_id, filename, file_data_str))
     conn.commit()
+
 
 # Function to insert prompt-response data into Snowflake
 def insert_prompt_response(prompt_id, prompt, response):
