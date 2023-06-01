@@ -233,27 +233,54 @@ if assistant_role_name and user_role_name:
                     chat_history = []
 
                     with st.spinner("Running role-playing session to solve the task..."):
-                        # Replace the for loop with the following code:
-                        progress = st.progress(0)
-                        for n in range(chat_turn_limit):
-                            user_ai_msg = user_agent.step(assistant_msg)
-                            user_msg = HumanMessage(content=user_ai_msg.content)
+        # Replace the for loop with the following code:
+        progress = st.progress(0)
+        for n in range(chat_turn_limit):
+            # AI Agent 1's turn
+            user_ai_msg = user_agent.step(assistant_msg)
+            user_msg = HumanMessage(content=user_ai_msg.content)
 
-                            chat_history.append({"role": user_role_name, "content": user_msg.content})
-                            st.markdown(f"<p style='color: blue; font-weight: bold;'>{user_role_name}</p>\n\n{user_msg.content}\n\n", unsafe_allow_html=True)
+            chat_history.append({"role": user_role_name, "content": user_msg.content})
+            st.markdown(f"<p style='color: blue; font-weight: bold;'>{user_role_name}</p>\n\n{user_msg.content}\n\n", unsafe_allow_html=True)
 
-                            assistant_ai_msg = assistant_agent.step(user_msg)
-                            assistant_msg = HumanMessage(content=assistant_ai_msg.content)
+            assistant_ai_msg = assistant_agent.step(user_msg)
+            assistant_msg = HumanMessage(content=assistant_ai_msg.content)
 
-                            chat_history.append({"role": assistant_role_name, "content": assistant_msg.content})
-                            st.markdown(f"<p style='color: green; font-weight: bold;'>{assistant_role_name}</p>\n\n{assistant_msg.content}\n\n", unsafe_allow_html=True)
+            chat_history.append({"role": assistant_role_name, "content": assistant_msg.content})
+            st.markdown(f"<p style='color: green; font-weight: bold;'>{assistant_role_name}</p>\n\n{assistant_msg.content}\n\n", unsafe_allow_html=True)
 
-                            progress.progress((n+1)/chat_turn_limit)
+            progress.progress((n+1)/chat_turn_limit)
 
-                            if "<CAMEL_TASK_DONE>" in user_msg.content:
-                                break
+            if "<CAMEL_TASK_DONE>" in user_msg.content:
+                break
 
-                        progress.empty()
+            # Check if the task is complete
+            if is_task_complete(assistant_msg.content):
+                break
+
+            # AI Agent 2's turn
+            user_input = st.text_input("Human:")
+            user_msg = HumanMessage(content=user_input)
+
+            chat_history.append({"role": user_role_name, "content": user_msg.content})
+            st.markdown(f"<p style='color: blue; font-weight: bold;'>{user_role_name}</p>\n\n{user_msg.content}\n\n", unsafe_allow_html=True)
+
+            assistant_ai_msg = assistant_agent.step(user_msg)
+            assistant_msg = HumanMessage(content=assistant_ai_msg.content)
+
+            chat_history.append({"role": assistant_role_name, "content": assistant_msg.content})
+            st.markdown(f"<p style='color: green; font-weight: bold;'>{assistant_role_name}</p>\n\n{assistant_msg.content}\n\n", unsafe_allow_html=True)
+
+            progress.progress((n+2)/chat_turn_limit)
+
+            # Check if the task is complete
+            if is_task_complete(assistant_msg.content):
+                break
+
+            # Delay between turns to simulate a conversation
+            time.sleep(1)
+
+        progress.empty()
 
 
                     
