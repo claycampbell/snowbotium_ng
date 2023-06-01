@@ -232,6 +232,8 @@ if assistant_role_name and user_role_name:
 
                     chat_history = []
 import time
+import streamlit as st
+
 def chat_with_agents():
     with st.spinner("Running role-playing session to solve the task..."):
         # Replace the for loop with the following code:
@@ -283,32 +285,35 @@ def chat_with_agents():
 
         progress.empty()
 
-                    # Main: Save chat history to file
-                    task_name = generate_unique_task_name(task, chat_history_items)
-                    history_dict = {
-                        "task": task_name,
-                        "settings": {
-                            "assistant_role_name": assistant_role_name,
-                            "user_role_name": user_role_name,
-                            "model": model,
-                            "chat_turn_limit": chat_turn_limit,
-                        },
-                        "conversation": chat_history,
-                    }
+        # Main: Save chat history to file
+        task_name = generate_unique_task_name(task, chat_history_items)
+        history_dict = {
+            "task": task_name,
+            "settings": {
+                "assistant_role_name": assistant_role_name,
+                "user_role_name": user_role_name,
+                "model": model,
+                "chat_turn_limit": chat_turn_limit,
+            },
+            "conversation": chat_history,
+        }
 
-                    with open("chat_history.json", "a") as history_file:
-                        json.dump(history_dict, history_file)
-                        history_file.write("\n")
+        with open("chat_history.json", "a") as history_file:
+            json.dump(history_dict, history_file)
+            history_file.write("\n")
                     
 
-            else:
-                st.warning("Please enter the chat turn limit.")
-        else:
-            st.warning("Please specify the task.")
-    else:
-        st.warning("Please enter the task.")
-else:
+if not ai_assistant or not ai_user:
     st.warning("Please select both AI assistant and AI user roles.")
+else:
+    if not task:
+        st.warning("Please enter the task.")
+    else:
+        if chat_turn_limit:
+            chat_with_agents()
+        else:
+            st.warning("Please enter the chat turn limit.")
+
 
 # Sidebar: Load chat history
 chat_history_titles = [item["task"] for item in chat_history_items]
