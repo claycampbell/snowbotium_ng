@@ -93,17 +93,18 @@ def get_sys_msgs(assistant_role_name: str, user_role_name: str, task: str):
 
     return assistant_sys_msg, user_sys_msg
 
-def generate_unique_task_name(task: str, chat_history_items: List[dict]) -> str.
-
-    task_name = task
-    count = 1
-    task_names = [item["task"] for item in chat_history_items]
-
-    while task_name in task_names:
-        task_name = f"{task} ({count})"
-        count += 1
-
+def generate_unique_task_name(task: str, chat_history_items: List[dict]) -> str:
+    task_id = str(uuid.uuid4())
+    task_name = f"{task}_{task_id}"
+    
+    # Check if the task name already exists in the chat history items
+    for item in chat_history_items:
+        if item.get("task_name") == task_name:
+            # If the task name already exists, generate a new unique task name
+            return generate_unique_task_name(task, chat_history_items)
+    
     return task_name
+
 
 def load_chat_history_items() -> List[dict]:
     chat_history_items = []
