@@ -65,7 +65,7 @@ chat_history_items = []
 
 st.set_page_config(layout="centered") 
 
-st.title("OmniSolver 🔆", help="This app uses the CAMEL framework to solve problems. This app uses GPT models and the responses may not be accurate")
+st.title("Automation Rodeo 🐂")
 
 # Sidebar: API Key input
 st.sidebar.title("Configuration")
