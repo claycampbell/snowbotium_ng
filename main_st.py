@@ -73,7 +73,7 @@ st.sidebar.title("Configuration")
 api_key = st.sidebar.text_input("Enter your OpenAI API Key:", type="password")
 
 # uncomment this if you want to use the API key from the environment variable locally
-# api_key = os.getenv("OPENAI_API_KEY")
+api_key = os.getenv("OPENAI_API_KEY")
 
 if api_key:
     os.environ["OPENAI_API_KEY"] = api_key
@@ -264,4 +264,4 @@ try:
 except FileNotFoundError:
     st.sidebar.warning("No chat history available.")
 
-st.sidebar.title("Search for more projects like this at [echohive](https://www.echohive.live)")
+
