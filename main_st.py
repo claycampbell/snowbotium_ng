@@ -70,7 +70,7 @@ st.title("OmniSolver 🔆", help="This app uses the CAMEL framework to solve pro
 # Sidebar: API Key input
 st.sidebar.title("Configuration")
 # comment this out if you want to use the API key from the environment variable locally
-api_key = st.sidebar.text_input("Enter your OpenAI API Key:", type="password")
+#api_key = st.sidebar.text_input("Enter your OpenAI API Key:", type="password")
 
 # uncomment this if you want to use the API key from the environment variable locally
 api_key = os.getenv("OPENAI_API_KEY")
