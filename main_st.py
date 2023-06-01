@@ -1,5 +1,7 @@
 import streamlit as st
 import os
+import PyPDF2
+import snowflake.connector
 from termcolor import colored
 from typing import List
 from langchain.chat_models import ChatOpenAI
@@ -17,6 +19,59 @@ from camel_agent import CAMELAgent
 from inception_prompts import assistant_inception_prompt, user_inception_prompt
 import json
 
+# Snowflake connection parameters
+snowflake_user = st.secrets["snowflake"]["user"]
+snowflake_password = st.secrets["snowflake"]["password"]
+snowflake_account = st.secrets["snowflake"]["account"]
+snowflake_database = st.secrets["snowflake"]["database"]
+snowflake_schema = st.secrets["snowflake"]["schema"]
+snowbotium_table_files = "snowbotium_files"
+snowbotium_table_responses = "snowbotium_responses"
+
+# Initialize Snowflake connection
+conn = snowflake.connector.connect(
+    user=snowflake_user,
+    password=snowflake_password,
+    account=snowflake_account,
+    warehouse='COMPUTE_WH',
+    database=snowflake_database,
+    schema=snowflake_schema
+)
+# Create Snowflake cursor
+cursor = conn.cursor()
+
+# Create Snowflake tables if they don't exist
+cursor.execute(f"""
+    CREATE TABLE IF NOT EXISTS {snowbotium_table_files} (
+        id STRING,
+        filename STRING,
+        filedata VARCHAR
+    )
+""")
+
+cursor.execute(f"""
+    CREATE TABLE IF NOT EXISTS {snowbotium_table_responses} (
+        id STRING,
+        prompt STRING,
+        response STRING
+    )
+""")
+
+# Function to insert file data into Snowflake
+def insert_file_data(file_id, filename, file_data):
+    cursor.execute(f"""
+        INSERT INTO {snowbotium_table_files} (id, filename, filedata)
+        VALUES (%s, %s, %s)
+    """, (file_id, filename, file_data))
+    conn.commit()
+
+# Function to insert prompt-response data into Snowflake
+def insert_prompt_response(prompt_id, prompt, response):
+    cursor.execute(f"""
+        INSERT INTO {snowbotium_table_responses} (id, prompt, response)
+        VALUES (%s, %s, %s)
+    """, (prompt_id, prompt, response))
+    conn.commit()
 
 # Function to select roles
 def select_role(role_type, roles):
@@ -98,7 +153,6 @@ with open("roles.txt", "r") as roles_file:
 user_role_name = select_role("AI user", roles_list)
 assistant_role_name = select_role("AI assistant", roles_list)
 
-
 if assistant_role_name and user_role_name:
     # Main: Task input
     task = st.text_input("Please enter the task:")
@@ -132,7 +186,14 @@ if assistant_role_name and user_role_name:
         if specified_task:
             # Main: Chat turn limit input
             chat_turn_limit = st.number_input("Please enter the chat turn limit:", min_value=1, step=1)
-            
+
+            file = st.file_uploader("Upload a file", type=["pdf", "txt", "docx"])
+            if file:
+                file_id = str(uuid.uuid4())
+                filename = file.name
+                file_data = file.read()
+                insert_file_data(file_id, filename, file_data)
+
             if st.button("Start Solving Task"):
                 if api_key == "":
                     st.warning("Please enter your OpenAI API Key.")
@@ -161,7 +222,6 @@ if assistant_role_name and user_role_name:
 
                     st.write(f"<p style='color: red;'><b>Original task prompt:</b></p>\n\n{task}\n", unsafe_allow_html=True)
                     st.write(f"<p style='color: red;'><b>Specified task prompt:</b></p>\n\n{specified_task}\n", unsafe_allow_html=True)
-
 
                     chat_history = []
 
