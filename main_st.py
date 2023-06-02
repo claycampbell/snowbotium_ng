@@ -129,9 +129,12 @@ def main():
     assistant_role_name = select_role("Assistant", roles)
     user_role_name = select_role("User", roles)
 
-    sys_msgs = get_sys_msgs(assistant_role_name, user_role_name, task)
+    if task:
+        sys_msgs = get_sys_msgs(assistant_role_name, user_role_name, task)
+    else:
+        st.sidebar.error("Please enter a value for the 'Task' field.")
 
-    if st.sidebar.button("Start Chat"):
+    if st.sidebar.button("Start Chat"):   
         agent_1 = CAMELAgent()
         agent_2 = CAMELAgent()
 
