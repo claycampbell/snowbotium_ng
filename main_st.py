@@ -210,6 +210,7 @@ if assistant_role_name and user_role_name:
                     stats_file.write(str(tasks_solved))
 
                 chat_history_items = load_chat_history_items()
+                chat_with_agents()  # Call the function to start the role-playing session
                 with st.spinner("Thinking..."):
                     # Main: Initialize agents and start role-playing session
                     assistant_sys_msg, user_sys_msg = get_sys_msgs(assistant_role_name, user_role_name, specified_task)
