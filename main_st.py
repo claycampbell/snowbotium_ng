@@ -232,7 +232,7 @@ if assistant_role_name and user_role_name:
 
                     chat_history = []
 import time
-import streamlit as st
+
 
 def chat_with_agents():
     with st.spinner("Running role-playing session to solve the task..."):
@@ -302,21 +302,8 @@ def chat_with_agents():
             json.dump(history_dict, history_file)
             history_file.write("\n")
 
-roles_list = ["roles_list"]  # Replace with your actual role names
 
-user_role_name = select_role("AI user", roles_list)
-assistant_role_name = select_role("AI assistant", roles_list)
 
-if not user_role_name or not assistant_role_name:
-    st.warning("Please select both AI assistant and AI user roles.")
-else:
-    if not task:
-        st.warning("Please enter the task.")
-    else:
-        if chat_turn_limit:
-            chat_with_agents()
-        else:
-            st.warning("Please enter the chat turn limit.")
 
 
 
