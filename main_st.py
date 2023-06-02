@@ -184,4 +184,4 @@ def main():
         st.error(f"Error Connecting to Snowflake: {e.msg}")
 
 if __name__ == "__main__":
-    main(
+    main()
