@@ -231,11 +231,11 @@ if assistant_role_name and user_role_name:
                     st.write(f"<p style='color: red;'><b>Specified task prompt:</b></p>\n\n{specified_task}\n", unsafe_allow_html=True)
 
                     chat_history = []
-import time
+
 
 
 def chat_with_agents():
-     with st.spinner("Running role-playing session to solve the task..."):
+ with st.spinner("Running role-playing session to solve the task..."):
                         # Replace the for loop with the following code:
                         progress = st.progress(0)
                         for n in range(chat_turn_limit):
@@ -259,22 +259,34 @@ def chat_with_agents():
                         progress.empty()
 
 
-        # Main: Save chat history to file
-        task_name = generate_unique_task_name(task, chat_history_items)
-        history_dict = {
-            "task": task_name,
-            "settings": {
-                "assistant_role_name": assistant_role_name,
-                "user_role_name": user_role_name,
-                "model": model,
-                "chat_turn_limit": chat_turn_limit,
-            },
-            "conversation": chat_history,
-        }
+                    
 
-        with open("chat_history.json", "a") as history_file:
-            json.dump(history_dict, history_file)
-            history_file.write("\n")
+                    # Main: Save chat history to file
+                    task_name = generate_unique_task_name(task, chat_history_items)
+                    history_dict = {
+                        "task": task_name,
+                        "settings": {
+                            "assistant_role_name": assistant_role_name,
+                            "user_role_name": user_role_name,
+                            "model": model,
+                            "chat_turn_limit": chat_turn_limit,
+                        },
+                        "conversation": chat_history,
+                    }
+
+                    with open("chat_history.json", "a") as history_file:
+                        json.dump(history_dict, history_file)
+                        history_file.write("\n")
+                    
+
+            else:
+                st.warning("Please enter the chat turn limit.")
+        else:
+            st.warning("Please specify the task.")
+    else:
+        st.warning("Please enter the task.")
+else:
+    st.warning("Please select both AI assistant and AI user roles.")
 
 # Sidebar: Load chat history
 chat_history_titles = [item["task"] for item in chat_history_items]
