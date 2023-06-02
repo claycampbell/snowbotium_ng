@@ -189,13 +189,15 @@ if assistant_role_name and user_role_name:
         if specified_task:
             # Main: Chat turn limit input
             chat_turn_limit = st.number_input("Please enter the chat turn limit:", min_value=1, step=1)
-
-            file = st.file_uploader("Upload a file", type=["pdf", "txt", "docx"])
-            if file:
-                file_id = str(uuid.uuid4())
-                filename = file.name
-                file_data = file.read()
-                insert_file_data(file_id, filename, file_data)
+            
+            uploaded_file = st.file_uploader("Choose a PDF file", type="pdf")
+            if uploaded_file is not None:
+        # Read the uploaded PDF file
+                pdf_reader = PyPDF2.PdfReader(uploaded_file)
+                file_content = ""
+                for page in pdf_reader.pages:
+                    file_content += page.extract_text()
+                insert_file_data(str(uploaded_file.name), uploaded_file.name, file_content)
 
             if st.button("Start Solving Task"):
                 if api_key == "":
@@ -227,21 +229,42 @@ if assistant_role_name and user_role_name:
                     st.write(f"<p style='color: red;'><b>Specified task prompt:</b></p>\n\n{specified_task}\n", unsafe_allow_html=True)
 
                     chat_history = []
+                    for item in chat_history_items:
+                        item['file_content'] = file_content
+                        chat_history.append(item)
+
+                    # Append file_content to the chat_history
+                    chat_history.append({"role": user_role_name, "content": file_content})
+
+                    # Debugging statements
+                    for item in chat_history:
+                        if 'role' in item:
+                            role = item['role']
+                            content = item['content']
+                            if role == assistant_role_name:
+                                user_msg = HumanMessage(content=content)
+                                user_msg = assistant_agent.step(user_msg)
+                            else:
+                                user_msg = HumanMessage(content=content)
+                                user_msg = user_agent.step(user_msg)
+                        else:
+                            print(f"Item without 'role': {item}")
 
                     with st.spinner("Running role-playing session to solve the task..."):
                         # Replace the for loop with the following code:
                         progress = st.progress(0)
+
                         for n in range(chat_turn_limit):
                             user_ai_msg = user_agent.step(assistant_msg)
                             user_msg = HumanMessage(content=user_ai_msg.content)
 
-                            chat_history.append({"role": user_role_name, "content": user_msg.content})
+                            chat_history.append({"role": user_role_name, "content": user_msg.content, "file_content": file_content})
                             st.markdown(f"<p style='color: blue; font-weight: bold;'>{user_role_name}</p>\n\n{user_msg.content}\n\n", unsafe_allow_html=True)
 
                             assistant_ai_msg = assistant_agent.step(user_msg)
                             assistant_msg = HumanMessage(content=assistant_ai_msg.content)
 
-                            chat_history.append({"role": assistant_role_name, "content": assistant_msg.content})
+                            chat_history.append({"role": assistant_role_name, "content": assistant_msg.content,"file_content": file_content})
                             st.markdown(f"<p style='color: green; font-weight: bold;'>{assistant_role_name}</p>\n\n{assistant_msg.content}\n\n", unsafe_allow_html=True)
 
                             progress.progress((n+1)/chat_turn_limit)
