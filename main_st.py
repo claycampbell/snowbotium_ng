@@ -1,4 +1,3 @@
-
 import streamlit as st
 import os
 import PyPDF2
@@ -20,168 +19,331 @@ from camel_agent import CAMELAgent
 from inception_prompts import assistant_inception_prompt, user_inception_prompt
 import json
 import uuid
+
+# Snowflake connection parameters
+snowflake_user = st.secrets["snowflake"]["user"]
+snowflake_password = st.secrets["snowflake"]["password"]
+snowflake_account = st.secrets["snowflake"]["account"]
+snowflake_database = st.secrets["snowflake"]["database"]
+snowflake_schema = st.secrets["snowflake"]["schema"]
+snowbotium_table_files = "snowbotium_files"
+snowbotium_table_responses = "snowbotium_responses"
+
+# Initialize Snowflake connection
+conn = snowflake.connector.connect(
+    user=snowflake_user,
+    password=snowflake_password,
+    account=snowflake_account,
+    warehouse='COMPUTE_WH',
+    database=snowflake_database,
+    schema=snowflake_schema
+)
+# Create Snowflake cursor
+cursor = conn.cursor()
+
+# Create Snowflake tables if they don't exist
+cursor.execute(f"""
+    CREATE TABLE IF NOT EXISTS {snowbotium_table_files} (
+        id STRING,
+        filename STRING,
+        filedata VARCHAR
+    )
+""")
+
+cursor.execute(f"""
+    CREATE TABLE IF NOT EXISTS {snowbotium_table_responses} (
+        id STRING,
+        prompt STRING,
+        response STRING
+    )
+""")
+
 import base64
 
-
-def main():
-
-    # Function to insert file data into Snowflake
-    def insert_file_data(cursor, file_id, filename, file_data):
-        file_data_str = base64.b64encode(file_data).decode('utf-8')  # Convert binary data to string
-        cursor.execute(f"""
-            INSERT INTO {snowbotium_table_files} (id, filename, filedata)
-            VALUES (%s, %s, %s)
-        """, (file_id, filename, file_data_str))
-
-    # Function to insert prompt-response data into Snowflake
-    def insert_prompt_response(cursor, prompt_id, prompt, response):
-        cursor.execute(f"""
-            INSERT INTO {snowbotium_table_responses} (id, prompt, response)
-            VALUES (%s, %s, %s)
-        """, (prompt_id, prompt, response))
-
-    # Function to select roles
-    def select_role(role_type, roles):
-        selected_role = st.selectbox(f"Select {role_type} role:", ["Custom Role"] + roles)
-        if selected_role == "Custom Role":
-            custom_role = st.text_input(f"Enter the {role_type} (Custom Role):")
-            return custom_role
-        else:
-            return selected_role
-
-    # Function to get system messages for AI assistant and AI user from role names and the task
-    def get_sys_msgs(assistant_role_name: str, user_role_name: str, task: str):
-        assistant_sys_template = SystemMessagePromptTemplate.from_template(template=assistant_inception_prompt)
-        assistant_sys_msg = assistant_sys_template.format_messages(assistant_role_name=assistant_role_name, user_role_name=user_role_name, task=task)[0]
-
-        user_sys_template = SystemMessagePromptTemplate.from_template(template=user_inception_prompt)
-        user_sys_msg = user_sys_template.format_messages(assistant_role_name=assistant_role_name, user_role_name=user_role_name, task=task)[0]
-
-        return assistant_sys_msg, user_sys_msg
-
-    def generate_unique_task_name(task: str, chat_history_items: List[dict]) -> str:
-        task_id = str(uuid.uuid4())
-        task_name = f"{task}_{task_id}"
-
-        # Check if the task name already exists in the chat history items
-        for item in chat_history_items:
-            if item.get("task_name") == task_name:
-                # If the task name already exists, generate a new unique task name
-                return generate_unique_task_name(task, chat_history_items)
-
-        return task_name
+# Function to insert file data into Snowflake
+def insert_file_data(file_id, filename, file_data):
+    file_data_str = base64.b64encode(file_data).decode('utf-8')  # Convert binary data to string
+    cursor.execute(f"""
+        INSERT INTO {snowbotium_table_files} (id, filename, filedata)
+        VALUES (%s, %s, %s)
+    """, (file_id, filename, file_data_str))
+    conn.commit()
 
 
-    # Function to try and load chat history items from JSON
-    def load_chat_history_items() -> List[dict]:
-        chat_history_items = []
-        try:
-            with open("chat_history.json", "r") as history_file:
-                for line in history_file:
-                    chat_history_items.append(json.loads(line.strip()))
-        except FileNotFoundError:
-            pass
+# Function to insert prompt-response data into Snowflake
+def insert_prompt_response(prompt_id, prompt, response):
+    cursor.execute(f"""
+        INSERT INTO {snowbotium_table_responses} (id, prompt, response)
+        VALUES (%s, %s, %s)
+    """, (prompt_id, prompt, response))
+    conn.commit()
 
-        return chat_history_items
+# Function to select roles
+def select_role(role_type, roles):
+    selected_role = st.selectbox(f"Select {role_type} role:",  ["Custom Role"] + roles )
+    if selected_role == "Custom Role":
+        custom_role = st.text_input(f"Enter the {role_type} (Custom Role):")
+        return custom_role
+    else:
+        return selected_role
+
+# Function to get system messages for AI assistant and AI user from role names and the task
+def get_sys_msgs(assistant_role_name: str, user_role_name: str, task: str):
+    assistant_sys_template = SystemMessagePromptTemplate.from_template(template=assistant_inception_prompt)
+    assistant_sys_msg = assistant_sys_template.format_messages(assistant_role_name=assistant_role_name, user_role_name=user_role_name, task=task)[0]
+
+    user_sys_template = SystemMessagePromptTemplate.from_template(template=user_inception_prompt)
+    user_sys_msg = user_sys_template.format_messages(assistant_role_name=assistant_role_name, user_role_name=user_role_name, task=task)[0]
+
+    return assistant_sys_msg, user_sys_msg
+
+def generate_unique_task_name(task: str, chat_history_items: List[dict]) -> str:
+    task_id = str(uuid.uuid4())
+    task_name = f"{task}_{task_id}"
+    
+    # Check if the task name already exists in the chat history items
+    for item in chat_history_items:
+        if item.get("task_name") == task_name:
+            # If the task name already exists, generate a new unique task name
+            return generate_unique_task_name(task, chat_history_items)
+    
+    return task_name
 
 
-    # Snowflake connection parameters
-    snowflake_user = st.secrets["snowflake"]["user"]
-    snowflake_password = st.secrets["snowflake"]["password"]
-    snowflake_account = st.secrets["snowflake"]["account"]
-    snowflake_database = st.secrets["snowflake"]["database"]
-    snowflake_schema = st.secrets["snowflake"]["schema"]
-    snowbotium_table_files = "snowbotium_files"
-    snowbotium_table_responses = "snowbotium_responses"
-
-    # Initialize Snowflake connection
+def load_chat_history_items() -> List[dict]:
+    chat_history_items = []
     try:
-        with snowflake.connector.connect(
-            user=snowflake_user,
-            password=snowflake_password,
-            account=snowflake_account,
-            warehouse='COMPUTE_WH',
-            database=snowflake_database,
-            schema=snowflake_schema
-        ) as conn:
-            cursor = conn.cursor()
+        with open("chat_history.json", "r") as history_file:
+            for line in history_file:
+                chat_history_items.append(json.loads(line.strip()))
+    except FileNotFoundError:
+        pass
 
-            # Create table to store file data
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS {snowbotium_table_files} (
-                    id VARCHAR(100),
-                    filename VARCHAR(255),
-                    filedata VARCHAR(16777216)
+    return chat_history_items
+
+
+chat_history_items = []
+
+
+st.set_page_config(layout="centered") 
+
+st.title("Automation Rodeo 🐂")
+
+# Sidebar: API Key input
+st.sidebar.title("Configuration")
+# comment this out if you want to use the API key from the environment variable locally
+#api_key = st.sidebar.text_input("Enter your OpenAI API Key:", type="password")
+
+# uncomment this if you want to use the API key from the environment variable locally
+api_key = os.getenv("OPENAI_API_KEY")
+
+if api_key:
+    os.environ["OPENAI_API_KEY"] = api_key
+elif api_key == "":
+    st.sidebar.warning("Please enter your OpenAI API Key.")
+
+  
+
+# Sidebar: Model selection
+model = st.sidebar.radio("Select the model:", ("gpt-3.5-turbo", "gpt-4"))
+
+with open("stats.txt", "r") as stats_file:
+                    stats = stats_file.readlines()
+                    tasks_solved = int(stats[0].strip())
+                    tasks_solved += 1
+                    st.write(f"<p style='color: green; font-weight: bold;'>This App was used to solve *{tasks_solved}* tasks so far since deployed</p>", unsafe_allow_html=True)
+# Main: Load roles from roles.txt
+with open("roles.txt", "r") as roles_file:
+    roles_list = [line.strip() for line in roles_file.readlines()]
+
+# Main: Role selection
+user_role_name = select_role("AI user", roles_list)
+assistant_role_name = select_role("AI assistant", roles_list)
+
+if assistant_role_name and user_role_name:
+    # Main: Task input
+    task = st.text_input("Please enter the task:")
+
+    if task:
+        # Main: Task specifier
+        task_specifier = st.checkbox("Do you want to use the task specifier feature?", help="Use the task specifier feature to make a task more specific by GPT. May not work as expected.")
+
+        if task_specifier:
+            word_limit = st.number_input("Please enter the word limit for the specified task:", min_value=1, value=50, step=1)
+
+            if word_limit:
+                task_specifier_sys_msg = SystemMessage(content="You can make a task more specific.")
+                task_specifier_prompt = (
+                    """Here is a task that {assistant_role_name} will help {user_role_name} to complete: {task}.
+                    Please make it more specific. Be creative and imaginative.
+                    Please reply with the specified task in {word_limit} words or less. Do not add anything else."""
                 )
-            """)
+                task_specifier_template = HumanMessagePromptTemplate.from_template(template=task_specifier_prompt)
+                task_specify_agent = CAMELAgent(task_specifier_sys_msg, ChatOpenAI(model=model, temperature=1.0))
+                task_specifier_msg = task_specifier_template.format_messages(assistant_role_name=assistant_role_name,
+                                                            user_role_name=user_role_name,
+                                                            task=task, word_limit=word_limit)[0]
+                specified_task_msg = task_specify_agent.step(task_specifier_msg)
+                st.write(f"<p style='font-weight: bold;'>Specified task:</p> {specified_task_msg.content}", unsafe_allow_html=True)
 
-            # Create table to store prompt-response data
-            cursor.execute(f"""
-                CREATE TABLE IF NOT EXISTS {snowbotium_table_responses} (
-                    id INTEGER,
-                    prompt VARCHAR(1000),
-                    response VARCHAR(1000)
-                )
-            """)
+                specified_task = specified_task_msg.content
+        else:
+            specified_task = task
 
-            # Load chat history items
-            chat_history_items = load_chat_history_items()
+        if specified_task:
+            # Main: Chat turn limit input
+            chat_turn_limit = st.number_input("Please enter the chat turn limit:", min_value=1, step=1)
 
-            # Select AI assistant and user roles
-            assistant_role = select_role(role_type="Assistant", roles=["Bot", "Human"])
-            user_role = select_role(role_type="User", roles=["Bot", "Human"])
+            file = st.file_uploader("Upload a file", type=["pdf", "txt", "docx"])
+            if file:
+                file_id = str(uuid.uuid4())
+                filename = file.name
+                file_data = file.read()
+                insert_file_data(file_id, filename, file_data)
 
-            # Collect task name from user
-            task_name = st.text_input("Enter a task name:")
+            if st.button("Start Solving Task"):
+                if api_key == "":
+                    st.warning("Please enter your OpenAI API Key.")
+                    st.stop()
 
-            # Generate unique task name based on input and chat history
-            unique_task_name = generate_unique_task_name(task_name, chat_history_items)
+                with open("stats.txt", "w") as stats_file:
+                    stats_file.write(str(tasks_solved))
 
-            # OpenAI models and prompt templates
-            model_name = st.secrets["OPENAI_API_KEY"]["model_name"]
-            api_key = st.secrets["OPENAI_API_KEY"]["api_key"]
-            chat_model = ChatOpenAI(model_name=model_name, api_key=api_key)
-            human_message_template = HumanMessagePromptTemplate.from_dict(st.secrets["prompts"]["human"])
-            system_message_template = SystemMessagePromptTemplate.from_dict(st.secrets["prompts"]["system"])
+                chat_history_items = load_chat_history_items()
+                with st.spinner("Thinking..."):
+                    # Main: Initialize agents and start role-playing session
+                    assistant_sys_msg, user_sys_msg = get_sys_msgs(assistant_role_name, user_role_name, specified_task)
+                    assistant_agent = CAMELAgent(assistant_sys_msg, ChatOpenAI(model=model, temperature=0.2))
+                    user_agent = CAMELAgent(user_sys_msg, ChatOpenAI(model=model, temperature=0.2))
 
-            # Wrap entire Streamlit app within try-except block to catch any Streamlit errors
-            try:
+                    assistant_agent.reset()
+                    user_agent.reset()
 
-                # Streamlit app begins here
-                st.title("CAMEL - Conversational AI with MLE")
+                    assistant_msg = HumanMessage(
+                        content=(f"{user_sys_msg.content}. "
+                                "Now start to give me introductions one by one. "
+                                "Only reply with Instruction and Input."))
 
-                # Initialize CAMELAgent
-                agent = CAMELAgent(
-                    assistant_role=assistant_role,
-                    user_role=user_role,
-                    chat_model=chat_model,
-                    human_message_template=human_message_template,
-                    system_message_template=system_message_template,
-                    chat_history_items=chat_history_items,
-                    task_name=unique_task_name,
-                    snowflake_cursor=cursor,
-                    insert_file_data_func=insert_file_data,
-                    insert_prompt_response_func=insert_prompt_response
-                )
+                    user_msg = HumanMessage(content=f"{assistant_sys_msg.content}")
+                    user_msg = assistant_agent.step(user_msg)
+
+                    st.write(f"<p style='color: red;'><b>Original task prompt:</b></p>\n\n{task}\n", unsafe_allow_html=True)
+                    st.write(f"<p style='color: red;'><b>Specified task prompt:</b></p>\n\n{specified_task}\n", unsafe_allow_html=True)
+
+                    chat_history = []
+import time
 
 
-                # Streamlit app continues here
-                st.write(f"Task Name: {unique_task_name}")
-                st.write(f"Assistant Role: {assistant_role}")
-                st.write(f"User Role: {user_role}")
+def chat_with_agents():
+    with st.spinner("Running role-playing session to solve the task..."):
+        # Replace the for loop with the following code:
+        progress = st.progress(0)
+        for n in range(chat_turn_limit):
+            # AI Agent 1's turn
+            user_ai_msg = user_agent.step(assistant_msg)
+            user_msg = HumanMessage(content=user_ai_msg.content)
 
-                # Collect user input and generate AI response
-                user_input = st.text_input("You >>>")
-                ai_response = agent.generate_response(user_input)
+            chat_history.append({"role": user_role_name, "content": user_msg.content})
+            st.markdown(f"<p style='color: blue; font-weight: bold;'>{user_role_name}</p>\n\n{user_msg.content}\n\n", unsafe_allow_html=True)
 
-                # Display AI response
-                st.write(f"{user_role} >>> {ai_response}")
+            assistant_ai_msg = assistant_agent.step(user_msg)
+            assistant_msg = HumanMessage(content=assistant_ai_msg.content)
 
-            except Exception as e:
-                st.error(f"Something went wrong: {e}")
+            chat_history.append({"role": assistant_role_name, "content": assistant_msg.content})
+            st.markdown(f"<p style='color: green; font-weight: bold;'>{assistant_role_name}</p>\n\n{assistant_msg.content}\n\n", unsafe_allow_html=True)
 
-    except snowflake.connector.errors.ProgrammingError as e:
-        st.error(f"Error Connecting to Snowflake: {e.msg}")
+            progress.progress((n+1)/chat_turn_limit)
 
-if __name__ == "__main__":
-    main()
+            if "<CAMEL_TASK_DONE>" in user_msg.content:
+                break
+
+            # Check if the task is complete
+            if is_task_complete(assistant_msg.content):
+                break
+
+            # AI Agent 2's turn
+            user_input = st.text_input("Human:")
+            user_msg = HumanMessage(content=user_input)
+
+            chat_history.append({"role": user_role_name, "content": user_msg.content})
+            st.markdown(f"<p style='color: blue; font-weight: bold;'>{user_role_name}</p>\n\n{user_msg.content}\n\n", unsafe_allow_html=True)
+
+            assistant_ai_msg = assistant_agent.step(user_msg)
+            assistant_msg = HumanMessage(content=assistant_ai_msg.content)
+
+            chat_history.append({"role": assistant_role_name, "content": assistant_msg.content})
+            st.markdown(f"<p style='color: green; font-weight: bold;'>{assistant_role_name}</p>\n\n{assistant_msg.content}\n\n", unsafe_allow_html=True)
+
+            progress.progress((n+2)/chat_turn_limit)
+
+            # Check if the task is complete
+            if is_task_complete(assistant_msg.content):
+                break
+
+            # Delay between turns to simulate a conversation
+            time.sleep(1)
+
+        progress.empty()
+
+        # Main: Save chat history to file
+        task_name = generate_unique_task_name(task, chat_history_items)
+        history_dict = {
+            "task": task_name,
+            "settings": {
+                "assistant_role_name": assistant_role_name,
+                "user_role_name": user_role_name,
+                "model": model,
+                "chat_turn_limit": chat_turn_limit,
+            },
+            "conversation": chat_history,
+        }
+
+        with open("chat_history.json", "a") as history_file:
+            json.dump(history_dict, history_file)
+            history_file.write("\n")
+
+# Sidebar: Load chat history
+chat_history_titles = [item["task"] for item in chat_history_items]
+try:
+    chat_history_items = load_chat_history_items()
+    chat_history_titles = [item["task"] for item in chat_history_items]
+    selected_history = st.sidebar.selectbox("Select chat history:", ["None"] + chat_history_titles)
+
+    if selected_history != "None":
+        delete_history_button = st.sidebar.button("Delete Selected Chat History")
+
+        if delete_history_button and selected_history != "None":
+            chat_history_items.pop(chat_history_titles.index(selected_history))
+
+            # Save the updated chat history to file
+            with open("chat_history.json", "w") as history_file:
+                for item in chat_history_items:
+                    json.dump(item, history_file)
+                    history_file.write("\n")
+
+            st.sidebar.success("Selected chat history deleted.")
+            st.experimental_rerun()
+
+
+
+    # Main: Display selected chat history
+    if selected_history != "None":
+        selected_history_item = chat_history_items[chat_history_titles.index(selected_history)]
+        settings = selected_history_item["settings"]
+        conversation = selected_history_item["conversation"]
+
+        st.write(f"<p style='color: green; font-weight: bold;'>Task:</p> {selected_history}\n", unsafe_allow_html=True)
+
+        st.write(f"""<p style='color: green; font-weight: bold;'>Settings:</p>
+                    <p>- AI assistant role: <span >{settings['assistant_role_name']}</span></p>
+                    <p>- AI user role: <span >{settings['user_role_name']}</span></p>
+                    <p>- Model: {settings['model']}</p>
+                    <p>- Chat turn limit: {settings['chat_turn_limit']}</p>
+                    """, unsafe_allow_html=True)
+
+
+        for msg in conversation:
+            st.markdown(f"<p style='color: green; font-weight: bold;'>{msg['role']}</p>\n\n{msg['content']}\n\n", unsafe_allow_html=True)
+
+except FileNotFoundError:
+    st.sidebar.warning("No chat history available.")
