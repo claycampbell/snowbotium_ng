@@ -58,17 +58,13 @@ cursor.execute(f"""
     )
 """)
 
-import base64
-
 # Function to insert file data into Snowflake
 def insert_file_data(file_id, filename, file_data):
-    file_data_str = base64.b64encode(file_data).decode('utf-8')  # Convert binary data to string
     cursor.execute(f"""
         INSERT INTO {snowbotium_table_files} (id, filename, filedata)
         VALUES (%s, %s, %s)
-    """, (file_id, filename, file_data_str))
+    """, (file_id, filename, file_data))
     conn.commit()
-
 
 # Function to insert prompt-response data into Snowflake
 def insert_prompt_response(prompt_id, prompt, response):
@@ -232,10 +228,7 @@ if assistant_role_name and user_role_name:
 
                     chat_history = []
 
-
-
-def chat_with_agents():
- with st.spinner("Running role-playing session to solve the task..."):
+                    with st.spinner("Running role-playing session to solve the task..."):
                         # Replace the for loop with the following code:
                         progress = st.progress(0)
                         for n in range(chat_turn_limit):
