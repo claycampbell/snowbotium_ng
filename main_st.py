@@ -138,8 +138,8 @@ def main():
             unique_task_name = generate_unique_task_name(task_name, chat_history_items)
 
             # OpenAI models and prompt templates
-            model_name = st.secrets["openai"]["model_name"]
-            api_key = st.secrets["openai"]["api_key"]
+            model_name = st.secrets["OPENAI_API_KEY"]["model_name"]
+            api_key = st.secrets["OPENAI_API_KEY"]["api_key"]
             chat_model = ChatOpenAI(model_name=model_name, api_key=api_key)
             human_message_template = HumanMessagePromptTemplate.from_dict(st.secrets["prompts"]["human"])
             system_message_template = SystemMessagePromptTemplate.from_dict(st.secrets["prompts"]["system"])
