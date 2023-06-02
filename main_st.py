@@ -232,8 +232,6 @@ if assistant_role_name and user_role_name:
 
                     chat_history = []
 import time
-import streamlit as st
-
 def chat_with_agents():
     with st.spinner("Running role-playing session to solve the task..."):
         # Replace the for loop with the following code:
@@ -313,6 +311,7 @@ else:
             chat_with_agents()
         else:
             st.warning("Please enter the chat turn limit.")
+
 
 
 # Sidebar: Load chat history
