@@ -92,7 +92,7 @@ def get_sys_msgs(assistant_role_name: str, user_role_name: str, task: str):
     assistant_sys_template = SystemMessagePromptTemplate.from_template(template=assistant_inception_prompt)
     assistant_sys_msg = assistant_sys_template.format_messages(assistant_role_name=assistant_role_name, user_role_name=user_role_name)
 
-    # Function to chat with agents
+# Function to chat with agents
 def chat_with_agents(agent_1: CAMELAgent, agent_2: CAMELAgent):
     st.write("Welcome to the agent chat!")
     st.write("You can start the conversation by sending a message as the user.")
