@@ -230,29 +230,38 @@ if assistant_role_name and user_role_name:
                     st.write(f"<p style='color: red;'><b>Specified task prompt:</b></p>\n\n{specified_task}\n", unsafe_allow_html=True)
 
                 # Use the chat history, including file content, in the conversation
+               # Use the chat history, including file content, in the conversation
                 chat_history = []
                 for item in chat_history_items:
                     item['file_content'] = file_content
                     chat_history.append(item)
 
                 for idx, item in enumerate(chat_history):
-                    role = item['role']
-                    content = item['content']
-                    if role == assistant_role_name:
-                        user_msg = HumanMessage(content=content)
-                        user_msg = assistant_agent.step(user_msg)
-                    else:
-                        user_msg = HumanMessage(content=content)
-                        user_msg = user_agent.step(user_msg)
-                    chat_history.append({"role": assistant_role_name, "content": user_msg.content})
-                    
-                    # Check if the maximum turn limit has been reached
-                    if idx >= chat_turn_limit:
-                        break
+                    if 'role' in item:
+                        role = item['role']
+                        content = item['content']
+                        if role == assistant_role_name:
+                            user_msg = HumanMessage(content=content)
+                            user_msg = assistant_agent.step(user_msg)
+                        else:
+                            user_msg = HumanMessage(content=content)
+                            user_msg = user_agent.step(user_msg)
+                        chat_history.append({"role": assistant_role_name, "content": user_msg.content})
+                        
+                        # Check if the maximum turn limit has been reached
+                        if idx >= chat_turn_limit:
+                            break
 
-                    # Append file_content to the chat_history
-                    chat_history.append({"role": user_role_name, "content": file_content})
-                    chat_history.append({"role": assistant_role_name, "content": user_msg.content})
+                        # Append file_content to the chat_history
+                        chat_history.append({"role": user_role_name, "content": file_content})
+                        chat_history.append({"role": assistant_role_name, "content": user_msg.content})
+                    else:
+                        # Handle the case where the 'role' key is missing
+                        # You can raise an error, log a message, or take appropriate action
+                        # Here, I'm printing a message for reference
+                        print(f"Skipping item {item} because 'role' key is missing")
+
+
 
                 # Retrieve the responses from the chat history
                 responses = [item['content'] if 'content' in item else '' for item in chat_history[-len(file_content):]]
