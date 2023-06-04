@@ -256,9 +256,15 @@ if assistant_role_name and user_role_name:
                 # Append file_content to the chat_history
                 chat_history.append({"role": user_role_name, "content": file_content})
 
+                # Use the file_content as context in the conversation
+                user_msg = HumanMessage(content=file_content)
+                user_msg = assistant_agent.step(user_msg)
+                chat_history.append({"role": assistant_role_name, "content": user_msg.content})
+
                 # Print the modified chat history
                 for item in chat_history:
                     print(f"{item['role']}: {item['content']}")
+
 
 
 
