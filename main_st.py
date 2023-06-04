@@ -231,12 +231,8 @@ if assistant_role_name and user_role_name:
 
                 # Use the chat history, including file content, in the conversation
                # Use the chat history, including file content, in the conversation
-                chat_history = []
-                for item in chat_history_items:
-                    item['file_content'] = file_content
-                    chat_history.append(item)
-
-                for idx, item in enumerate(chat_history):
+               chat_history = []
+                for idx, item in enumerate(chat_history_items):
                     if 'role' in item:
                         role = item['role']
                         content = item['content']
@@ -260,6 +256,10 @@ if assistant_role_name and user_role_name:
                         # You can raise an error, log a message, or take appropriate action
                         # Here, I'm printing a message for reference
                         print(f"Skipping item {item} because 'role' key is missing")
+
+                # Append file_content to the chat_history if it hasn't been appended yet
+                if len(chat_history) > 0 and chat_history[-1]['content'] != file_content:
+                    chat_history.append({"role": user_role_name, "content": file_content})
 
 
 
