@@ -247,19 +247,18 @@ if assistant_role_name and user_role_name:
                         # Check if the maximum turn limit has been reached
                         if idx >= chat_turn_limit:
                             break
-
-                        # Append file_content to the chat_history
-                        chat_history.append({"role": user_role_name, "content": file_content})
-                        chat_history.append({"role": assistant_role_name, "content": user_msg.content})
                     else:
                         # Handle the case where the 'role' key is missing
                         # You can raise an error, log a message, or take appropriate action
                         # Here, I'm printing a message for reference
                         print(f"Skipping item {item} because 'role' key is missing")
 
-                # Append file_content to the chat_history if it hasn't been appended yet
-                if len(chat_history) > 0 and chat_history[-1]['content'] != file_content:
-                    chat_history.append({"role": user_role_name, "content": file_content})
+                # Append file_content to the chat_history
+                chat_history.append({"role": user_role_name, "content": file_content})
+
+                # Print the modified chat history
+                for item in chat_history:
+                    print(f"{item['role']}: {item['content']}")
 
 
 
