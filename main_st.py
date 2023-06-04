@@ -2,6 +2,7 @@ import streamlit as st
 import os
 import PyPDF2
 import snowflake.connector
+import pandas as pd
 from termcolor import colored
 from typing import List
 from langchain.chat_models import ChatOpenAI
@@ -228,72 +229,130 @@ if assistant_role_name and user_role_name:
                     st.write(f"<p style='color: red;'><b>Original task prompt:</b></p>\n\n{task}\n", unsafe_allow_html=True)
                     st.write(f"<p style='color: red;'><b>Specified task prompt:</b></p>\n\n{specified_task}\n", unsafe_allow_html=True)
 
-                    chat_history = []
-                    for item in chat_history_items:
-                        item['file_content'] = file_content
-                        chat_history.append(item)
+                # Use the chat history, including file content, in the conversation
+                chat_history = []
+                for item in chat_history_items:
+                    item['file_content'] = file_content
+                    chat_history.append(item)
+
+                for idx, item in enumerate(chat_history):
+                    role = item['role']
+                    content = item['content']
+                    if role == assistant_role_name:
+                        user_msg = HumanMessage(content=content)
+                        user_msg = assistant_agent.step(user_msg)
+                    else:
+                        user_msg = HumanMessage(content=content)
+                        user_msg = user_agent.step(user_msg)
+                    chat_history.append({"role": assistant_role_name, "content": user_msg.content})
+                    
+                    # Check if the maximum turn limit has been reached
+                    if idx >= chat_turn_limit:
+                        break
 
                     # Append file_content to the chat_history
                     chat_history.append({"role": user_role_name, "content": file_content})
+                    chat_history.append({"role": assistant_role_name, "content": user_msg.content})
 
-                    # Debugging statements
-                    for item in chat_history:
-                        if 'role' in item:
-                            role = item['role']
-                            content = item['content']
-                            if role == assistant_role_name:
-                                user_msg = HumanMessage(content=content)
-                                user_msg = assistant_agent.step(user_msg)
-                            else:
-                                user_msg = HumanMessage(content=content)
-                                user_msg = user_agent.step(user_msg)
-                        else:
-                            print(f"Item without 'role': {item}")
+                # Retrieve the responses from the chat history
+                responses = [item['content'] if 'content' in item else '' for item in chat_history[-len(file_content):]]
 
-                    with st.spinner("Running role-playing session to solve the task..."):
-                        # Replace the for loop with the following code:
-                        progress = st.progress(0)
+                with st.spinner("Running role-playing session to solve the task..."):
+                    # Replace the for loop with the following code:
+                    progress = st.progress(0)
 
-                        for n in range(chat_turn_limit):
-                            user_ai_msg = user_agent.step(assistant_msg)
-                            user_msg = HumanMessage(content=user_ai_msg.content)
+                    for n in range(chat_turn_limit):
+                        user_ai_msg = user_agent.step(assistant_msg)
+                        user_msg = HumanMessage(content=user_ai_msg.content)
 
-                            chat_history.append({"role": user_role_name, "content": user_msg.content, "file_content": file_content})
-                            st.markdown(f"<p style='color: blue; font-weight: bold;'>{user_role_name}</p>\n\n{user_msg.content}\n\n", unsafe_allow_html=True)
+                        chat_history.append({"role": user_role_name, "content": user_msg.content, "file_content": file_content})
+                        st.markdown(f"<p style='color: blue; font-weight: bold;'>{user_role_name}</p>\n\n{user_msg.content}\n\n", unsafe_allow_html=True)
 
-                            assistant_ai_msg = assistant_agent.step(user_msg)
-                            assistant_msg = HumanMessage(content=assistant_ai_msg.content)
+                        assistant_ai_msg = assistant_agent.step(user_msg)
+                        assistant_msg = HumanMessage(content=assistant_ai_msg.content)
 
-                            chat_history.append({"role": assistant_role_name, "content": assistant_msg.content,"file_content": file_content})
-                            st.markdown(f"<p style='color: green; font-weight: bold;'>{assistant_role_name}</p>\n\n{assistant_msg.content}\n\n", unsafe_allow_html=True)
+                        chat_history.append({"role": assistant_role_name, "content": assistant_msg.content,"file_content": file_content})
+                        st.markdown(f"<p style='color: green; font-weight: bold;'>{assistant_role_name}</p>\n\n{assistant_msg.content}\n\n", unsafe_allow_html=True)
 
-                            progress.progress((n+1)/chat_turn_limit)
+                        progress.progress((n+1)/chat_turn_limit)
 
-                            if "<CAMEL_TASK_DONE>" in user_msg.content:
-                                break
+                        if "<CAMEL_TASK_DONE>" in user_msg.content:
+                            break
 
-                        progress.empty()
+                    progress.empty()
+
+                # Assuming you have already established a connection to Snowflake
+                conn = snowflake.connector.connect(
+                    user='claycampbell',
+                    password='Camps3116',
+                    account='mi14164.ca-central-1.aws',
+                    warehouse='COMPUTE_WH',
+                    database='SNOWBOTIUM',
+                    schema='public',
+                    snowbotium_table_responses="automation_rodeo_tasks"
+                )
+
+                # Main: Save chat history to file
+                task_name = generate_unique_task_name(task, chat_history_items)
+                history_dict = {
+                    "task": task_name,
+                    "settings": {
+                        "assistant_role_name": assistant_role_name,
+                        "user_role_name": user_role_name,
+                        "model": model,
+                        "chat_turn_limit": chat_turn_limit,
+                    },
+                    "conversation": chat_history,
+                }
+
+                with open("chat_history.json", "a") as history_file:
+                    json.dump(history_dict, history_file)
+                    history_file.write("\n")
+
+                # Get the current conversation
+                current_conversation = chat_history[-1]
+
+                # Convert the current conversation to JSON format
+                current_conversation_json = json.dumps(current_conversation)
+
+                # Replace single quotes with double quotes in the conversation JSON
+                current_conversation_json = current_conversation_json.replace("'", "''")
+
+                # Create a DataFrame with the current conversation
+                df = pd.DataFrame([current_conversation_json], columns=['conversation'])
+
+                # Load DataFrame data into Snowflake table
+                cursor = conn.cursor()
+
+                # Create the table in Snowflake (if it doesn't exist)
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS automation_rodeo_tasks (
+                        id INT,
+                        "task" VARIANT,
+                        "assistant_role_name" VARCHAR(255),
+                        "user_role_name" VARCHAR(255),
+                        "model" VARCHAR(255),
+                        "chat_turn_limit" INT,
+                        "conversation" VARIANT
+                    )
+                """)
+
+                # Insert DataFrame data into Snowflake table
+                cursor.execute("""
+                    INSERT INTO automation_rodeo_tasks (CONVERSATION)
+                    SELECT PARSE_JSON(%s)
+                """, (df.to_json(orient='records'),))
+
+                # Commit the changes
+                conn.commit()
+
+                # Close the cursor
+                cursor.close()
+
+                # Close the connection
+                conn.close()
 
 
-                    
-
-                    # Main: Save chat history to file
-                    task_name = generate_unique_task_name(task, chat_history_items)
-                    history_dict = {
-                        "task": task_name,
-                        "settings": {
-                            "assistant_role_name": assistant_role_name,
-                            "user_role_name": user_role_name,
-                            "model": model,
-                            "chat_turn_limit": chat_turn_limit,
-                        },
-                        "conversation": chat_history,
-                    }
-
-                    with open("chat_history.json", "a") as history_file:
-                        json.dump(history_dict, history_file)
-                        history_file.write("\n")
-                    
 
             else:
                 st.warning("Please enter the chat turn limit.")

@@ -1,0 +1,4 @@
+
+.streamlit/secrets.toml
+.vscode/settings.json
+__pycache__/camel_agent.cpython-310.pyc
