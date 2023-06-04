@@ -231,7 +231,7 @@ if assistant_role_name and user_role_name:
 
                 # Use the chat history, including file content, in the conversation
                # Use the chat history, including file content, in the conversation
-               chat_history = []
+                chat_history = []
                 for idx, item in enumerate(chat_history_items):
                     if 'role' in item:
                         role = item['role']
@@ -260,6 +260,7 @@ if assistant_role_name and user_role_name:
                 # Append file_content to the chat_history if it hasn't been appended yet
                 if len(chat_history) > 0 and chat_history[-1]['content'] != file_content:
                     chat_history.append({"role": user_role_name, "content": file_content})
+
 
 
 
