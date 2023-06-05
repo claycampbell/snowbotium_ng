@@ -231,7 +231,7 @@ if assistant_role_name and user_role_name:
 
                 # Use the chat history, including file content, in the conversation
                # Use the chat history, including file content, in the conversation
-                chat_history = []
+              chat_history = []
                 for idx, item in enumerate(chat_history_items):
                     if 'role' in item:
                         role = item['role']
@@ -243,7 +243,7 @@ if assistant_role_name and user_role_name:
                             user_msg = HumanMessage(content=content)
                             user_msg = user_agent.step(user_msg)
                         chat_history.append({"role": assistant_role_name, "content": user_msg.content})
-                        
+
                         # Check if the maximum turn limit has been reached
                         if idx >= chat_turn_limit:
                             break
@@ -256,12 +256,14 @@ if assistant_role_name and user_role_name:
                 # Append file_content to the chat_history
                 chat_history.append({"role": user_role_name, "content": file_content})
 
+                # Use the file_content as context in the conversation
+                user_msg = HumanMessage(content=file_content)
+                user_msg = assistant_agent.step(user_msg)
+                chat_history.append({"role": assistant_role_name, "content": user_msg.content})
+
                 # Print the modified chat history
                 for item in chat_history:
                     print(f"{item['role']}: {item['content']}")
-
-
-
 
                 # Retrieve the responses from the chat history
                 responses = [item['content'] if 'content' in item else '' for item in chat_history[-len(file_content):]]
