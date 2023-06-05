@@ -231,7 +231,7 @@ if assistant_role_name and user_role_name:
 
                 # Use the chat history, including file content, in the conversation
                # Use the chat history, including file content, in the conversation
-              chat_history = []
+             chat_history = []
                 for idx, item in enumerate(chat_history_items):
                     if 'role' in item:
                         role = item['role']
